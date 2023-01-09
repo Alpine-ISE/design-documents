@@ -35,7 +35,7 @@ Following list drives the decision but it is not an exhaustive list of reasons.
 **Test protocol**
 
 1. Create a simulated edge device via IaC. The terraform creates four Flux `kustomizations` via the Azure Arc extension
-2. Edit one of those Flux Kustomizations, `gitops-repo-apps-windowed`, change `.spec.path` from `./clusters/dotca01dev-edge-device-0/sets/set-01` to `./clusters/dotca01dev-edge-device-0/sets/set-01/test`
+2. Edit one of those Flux Kustomizations, `gitops-repo-apps-windowed`, change `.spec.path` from `./clusters/edge-device-0/sets/set-01` to `./clusters/edge-device-0/sets/set-01/test`
 
 **Result**
 

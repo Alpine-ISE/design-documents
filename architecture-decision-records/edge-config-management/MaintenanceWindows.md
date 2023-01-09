@@ -142,7 +142,7 @@ spec:
 
 This would solve the definition of maintenance windows for our use case and enable us to use ConfigService and not another external system to manage the definition of these maintenance windows.
 
-Additionally, by suspending the kustomization resource (hence stopping the synchronization of the GitOps repo to the cluster by flux) we can still push any planned changes to the GitOps repository's main branch. This means the customer using ConfigService would be able to know, what the desired state is for the configuration types after the window has passed and can take that into account when changing the configurations. The explicit separation of configuration types will also handle potential overwrites of live changes by maintenance window changes.
+Additionally, by suspending the kustomization resource (hence stopping the synchronization of the GitOps repo to the cluster by flux) we can still push any planned changes to the GitOps repository's main branch. This means the user would be able to know, what the desired state is for the configuration types after the window has passed and can take that into account when changing the configurations. The explicit separation of configuration types will also handle potential overwrites of live changes by maintenance window changes.
 
 As illustrated on two types of windows, this solution can be extended to accommodate more window types. However, this will increase the number of kustomization resources.
 

@@ -72,7 +72,7 @@ Options which have been considered:
       command:
       - git
       - clone
-      - "https://github.com/chassweeting/dummy.git"
+      - "https://github.com/username/examplerepo.git"
       - "/work-dir"
       volumeMounts:
       - name: workdir

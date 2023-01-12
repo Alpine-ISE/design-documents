@@ -4,7 +4,7 @@
 
 Flux can be configured to check a Git repo regularly (e.g. every 60 or 300 seconds).  Once changes are observed, Flux pulls the latest version of the repo and tries to apply the changes.
 
-Given that this happens asynchronously, how can we know whether Flux has reconciled the changes, and whether those changes have been successfully applied ?
+Given that this happens asynchronously, how can we know whether Flux has reconciled the changes, and whether those changes have been successfully applied?
 
 
 ## Solution
@@ -17,6 +17,8 @@ Once implemented, you will see a green check-mark or red cross next to the commi
 
 ![image.png](images/NotificationProvider/image-fc7ae8b5-ab52-44fd-9d90-63312dd52d7e.png)
 
+
+Similar statuses are available in Azure DevOps.
 
 ## Limitations
 
@@ -37,15 +39,15 @@ In the following description, variables (which you can create as env vars) are d
 - `USER` : username under which the GitOps repo lives on GitHub
 - `REPO` : the name of the GitOps repo on GitHub / the URL of the GitOps repo on Azure DevOps
 
-e.g. the GitOps repo on GitHub is https://github.com/USER/REPO.
+e.g. If using GitHub, your GitOps repo would be https://github.com/USER/REPO.
 
 
-1. Create a secret to store your GitHub/Azure DevOps PAT.  Here, we have chosen to name the secret "github-token"/"azdo-token":
+1. Create a secret to store your GitHub/Azure DevOps PAT.  Here, we have chosen to name the secret "github-token" on GitHub:
 
     ```bash
     kubectl create secret generic github-token -n flux-system --from-literal=token=$GPAT
     ```
-    or
+    or "azdo-token" if using Azure DevOps:
 
     ```bash
     kubectl create secret generic azdo-token -n flux-system --from-literal=token=$GPAT
@@ -54,12 +56,14 @@ e.g. the GitOps repo on GitHub is https://github.com/USER/REPO.
     If you wanted to verify/check the token on the cluster:
 
     ```bash
+    # GitHub
     kubectl get secrets/github-token -n flux-system -o json | jq -r '.data.token' | base64 -d
     ```
 
     or
 
     ```bash
+    # Azure DevOps
     kubectl get secrets/azdo-token -n flux-system -o json | jq -r '.data.token' | base64 -d
     ```
 

@@ -2,17 +2,31 @@
 
 ## Problem
 
+Flux can be configured to check a Git repo regularly (e.g. every 60 or 300 seconds).  Once changes are observed, Flux pulls the latest version of the repo and tries to apply the changes.
 
-##  Using Flux Notifications to report reconciliation status to the GitOps repo
+Given that this happens asynchronously, how can we know whether Flux has reconciled the changes, and whether those changes have been successfully applied?
 
-[Flux Notifications](https://fluxcd.io/docs/guides/notifications/) can be used to send notifications based on events emitted when changes are made to the "GitOps repository" (i.e. the git repo watched by Flux).   These notifications can be sent to messaging channels (eg. Teams, Slack) via web-hooks, but can also be written back to the GitOps repo using [Git Commit Statuses](https://docs.github.com/en/rest/commits/statuses).
 
-This document describes manually adding the Flux Notifications Provider to update the GitOps repository with information about the 'success' or 'failure' of a change to the repo, & the resulting Flux reconciliation.
+## Solution
+
+[Flux Notification Provider](https://fluxcd.io/docs/guides/notifications/) can be used to send notifications based on events emitted when changes are made to the "GitOps repository" (i.e. the git repo watched by Flux).   These notifications can be sent to messaging channels (eg. Teams, Slack) via web-hooks, but can also be written back to the GitOps repo using [Git Commit Statuses](https://docs.github.com/en/rest/commits/statuses).
+
+This document describes how to manually add the Flux Notifications Provider to update the GitOps repository with information about the 'success' or 'failure' of a change to the repo, & the resulting Flux reconciliation.
 
 Once implemented, you will see a green check-mark or red cross next to the commit hash in GitHub.  Hovering over the icon, you will be able to see a description of the status notifications:
 
 ![image.png](images/NotificationProvider/image-fc7ae8b5-ab52-44fd-9d90-63312dd52d7e.png)
 
+
+Similar statuses are available in Azure DevOps.
+
+## Limitations
+
+* If multiple Kubernetes clusters are watching the same GitOps repo and they all observe the same change (i.e. same git commit) then they will each try to append a status to the commit, and it can be difficult to discern the clusters responsible for each.
+* The Commit Statuses APIs are proprietary to each Git provider (e.g. Github, Azure DevOps) and often have a limit of ~1000 statuses per commit.
+
+
+## Setting up the Notification Provider
 
 Pre-requisites and assumptions:
 - You already have a Kubernetes cluster set up
@@ -20,24 +34,20 @@ Pre-requisites and assumptions:
 - You have a GitHub/Azure DevOps Personal Access Token (PAT) with which you can write to the GitOps repo
 - Kubectl & Flux command-line tools installed on your local environment
 
-
-## Setting up the Notification Provider
-
 In the following description, variables (which you can create as env vars) are defined as follows:
-
 - `GPAT` : your GitHub/Azure DevOps PAT
 - `USER` : username under which the GitOps repo lives on GitHub
 - `REPO` : the name of the GitOps repo on GitHub / the URL of the GitOps repo on Azure DevOps
 
-i.e. the GitOps repo on GitHub is https://github.com/USER/REPO.
+e.g. If using GitHub, your GitOps repo would be https://github.com/USER/REPO.
 
 
-1. Create a secret to store your GitHub/Azure DevOps PAT.  Here, we have chosen to name the secret "github-token"/"azdo-token":
+1. Create a secret to store your GitHub/Azure DevOps PAT.  Here, we have chosen to name the secret "github-token" on GitHub:
 
     ```bash
     kubectl create secret generic github-token -n flux-system --from-literal=token=$GPAT
     ```
-    or
+    or "azdo-token" if using Azure DevOps:
 
     ```bash
     kubectl create secret generic azdo-token -n flux-system --from-literal=token=$GPAT
@@ -46,12 +56,14 @@ i.e. the GitOps repo on GitHub is https://github.com/USER/REPO.
     If you wanted to verify/check the token on the cluster:
 
     ```bash
+    # GitHub
     kubectl get secrets/github-token -n flux-system -o json | jq -r '.data.token' | base64 -d
     ```
 
     or
 
     ```bash
+    # Azure DevOps
     kubectl get secrets/azdo-token -n flux-system -o json | jq -r '.data.token' | base64 -d
     ```
 
@@ -159,7 +171,7 @@ i.e. the GitOps repo on GitHub is https://github.com/USER/REPO.
 
    The Notifications Alert looks for Kustomization events, and reports whether the Kustomization is valid. Without [health assesment](https://fluxcd.io/flux/components/kustomize/kustomization/#health-assessment) configured, this will only tell you whether the Kustomization builds and the YAML manifests are valid. It does not concern itself with whether the actual container images are running.
 
-    To enabled health checking for all the reconciled resources, set `spec.wait` and `spec.timeout`:
+    To enable health checking for all the reconciled resources, set `spec.wait` and `spec.timeout`:
 
     ```yaml
     apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
@@ -194,11 +206,10 @@ i.e. the GitOps repo on GitHub is https://github.com/USER/REPO.
 
 <br>
 
-<hr>
 
-# Debugging tips
+## Debugging tips
 
-## Flux log
+### Flux log
 
 Use the `flux logs` command, using the `--kind` and `--name` options to filter:
 
@@ -209,7 +220,7 @@ Use the `flux logs` command, using the `--kind` and `--name` options to filter:
 If the commands time out regularly, try adding the `--since` option.
 
 
-## Exploring Commit Statuses via the Github API
+### Exploring Commit Statuses via the Github API
 
 To access the raw Git Commit Status, you can use the [GitHub API](https://docs.github.com/en/rest/commits/statuses)
 

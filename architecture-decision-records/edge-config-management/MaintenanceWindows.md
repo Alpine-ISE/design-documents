@@ -1,103 +1,33 @@
-# Configuration types and configuration scheduling
+# Reconciliation/Maintenance windows when using GitOps with Flux
 
-## Context
+When using Flux to manage a K8s cluster every new change in your repository will be immediately applied to the cluster’s state. In some use cases, the newest changes to a GitOps repository should only apply to the cluster within a designated time window. For example, the cluster should reconcile to the newest changes of the GitOps repository only between Monday 8 am to Thursday 5 pm. Any change coming into the GitOps repository on Friday or the weekend will have to wait till Monday 8 am to be applied.
 
-We want the ability to apply configuration changes in two ways:
+What are the scenarios this could be used for in real life?
 
-- Immediate (∂t=10min) application to the cluster
-- Scheduled to occur during the next maintenance window
+- Sometimes the cluster is connected to external systems, which need to be in maintenance mode before updates can be applied.
+- You want to be able to determine a designated time window when the next changes go into production so that in case of an issue you can react quickly.
 
-In short, the solution should enable applying configuration changes during a pre-determined time window and prohibit potentially inconsistent states.
+Flux does not have a scheduling ability in place as of now. But using the flux suspension feature and K8s Cron jobs a similar solution can be achieved.
 
-> Note: The goal is not to schedule fine-grained or specific configuration changes (eg. one single value) in their solution. Rather they want to be able to apply certain sets of configurations only in designated time windows.
+## Solution
 
-## Decision drivers
-
-- Manageable (windows can be set) either (a) manually via Git or (b) via Config Service REST API
-- Simplicity (ease of use) for the end user
-- Technical elegance & simplicity
-- Ease of debugging
-- Low maintenance
-- Generalizable
-- Mitigate the risk of inconsistent configuration states or conflicts between live & scheduled changes (see Appendix below)
-- Little to no changes to ConfigService
-
-## Considered options
-
-### Option 1: Use an external system to manage the maintenance windows
-
-Solve this problem by leveraging the approval feature of ConfigService to control the time when changes get merged into the main branch of the GitOps repository, from where the changes are then picked up by Flux and applied to the cluster.
-Create a tool that automatically approves scheduled changes when a maintenance window begins.
-This external system will also have to persist in the schedule for the maintenance windows.
-
-### Option 2: Use GitOps, Flux, and K8s native functionality to manage the maintenance window
-
-Solve this problem by leveraging Flux, K8s, and Kustomize features to enable certain configuration changes to be applied only during maintenance windows.
-
-In the simple scenario of two types of configuration like in the problem statement the GitOps setup of a cluster would look the following:
+The flux suspension feature allows users to halt and resume a `kustomization` resource from reconciling the newest changes.
 
 ```bash
-.
-├── apps
-│  └── app1
-├── clusters
-│  ├── prod-edge
-│  ├── staging-edge
-│  └── dev-edge
-│      ├── infra
-│      │    └── kustomization.yaml
-│      ├── infra-live
-│      │    ├── jobs
-│      │    │    ├── window-start-patch.yaml
-│      │    │    ├── window-stop-patch.yaml
-│      │    │    └── kustomization.yaml
-│      │    └── kustomization.yaml
-│      ├── sets-live
-│      │    ├── asset-01
-│      │    │   └── app1
-│      │    │         └── kustomization.yaml
-│      │    └── kustomization.yaml                        # This will  reference versions of type "live" which live under `sets-window`
-│      └── sets-window
-│          └── asset-01
-│              ├── app1
-│              │  ├── 1.0-live
-│              │  │    ├── configuration-live.yaml
-│              │  │    └── namespace.yaml
-│              │  └── 1.0-window
-│              │      └── kustomization.yaml
-│              └── kustomization.yaml                     # This will only reference  versions of type "window"
-└── infra
-    ├── base
-    └── jobs
-         ├── kustomize-suspend.yaml
-         └── kustomize-resum.yaml
+flux suspend kustomization <name>  # halts reconciliation of changes
+flux resume kustomization <name>   # resumes reconciliation of changes
 ```
 
-By separating the configuration types into two versions folders, we can reference them from different roots `kustomization.yaml` (which the flux kustomization resources point to), as well as able to edit both configuration types with ConfigService.
-
-```bash
-flux create kustomization apps-<type>  \
-    --path="./clusters/dev-edge/sets-<type>/asset-01/" \
-    --source=$REPOSITORY \
-    --prune=true \
-    --interval=1m
-```
-
-By having independent kustomization resources for different types of configuration, we can use the suspension feature of Flux to stop/start the synchronization of the GitOps repository to the cluster of each type independently.
-This means, that while configurations of type 'live' can be changed continuously during the day, configurations that should only be changed during maintenance windows can be suspended until such a window arrives and disabled right after its end.
-
-In our example above this means, the flux kustomization resource of the configurations in `./clusters/dev-edge/sets-window/asset-01/` will be suspended after the initial setup, until the maintenance window arrives. During the maintenance, window changes will be applied as frequently as defined in the parameter `interval` (here `interval=1m`)
-
-The suspension can be done manually or using a scheduled process.
-By using K8s CronJobs to resume and suspend the kustomization resource `apps-window`, we are able to manage the definition and kustomization of these jobs within the GitOps cluster and leverage ConfigService to change the job configuration for each cluster individually via patching.
-This could result in a CronJobs default definition under `infra/jobs`. Even though the CronJobs are managing the maintenance windows, the configuration of the CronJobs themselves happens via live configurations. This ensures the window period and time can be configured at any given time.
+Combining this with the scheduling ability of K8s `CronJobs`, flux `kustomization` resource can be managed so suspend reconciliation at the end of a reconciliation window and start applying changes again at the beginning of the newt time window.
+For this, we need an opening `CronJob` and a `CronJob`, as well as a service account, which allows the Jobs to manipulate resources on the cluster.
 
 ```yaml
-# kustomize-resume.yaml
+# open-reconciliation-window-job.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: resume-job
+  name: open-reconciliation-window
+  namespace: jobs
 spec:
   schedule: "* * * * *"
   suspend: true
@@ -105,72 +35,110 @@ spec:
     spec:
       template:
         spec:
+          serviceAccountName: <service-account-name>
           containers:
             - name: hello
-              image: bitnami/kubectl:latest
+              image: ghcr.io/fluxcd/flux-cli:v0.36.0
               imagePullPolicy: IfNotPresent
-              command:
-                - /bin/sh
-                - -c
-                - kubectl patch kustomizations.kustomize.toolkit.fluxcd.io  mw-poc -n flux-system --patch '{"spec":{"suspend":true}}' --type merge;
-          restartPolicy: OnFailure
-```
-
-The customized patch configuration of the jobs in the respective cluster folder of the cluster `./clusters/dev-edge/infra/jobs`.
-
-```yaml
-#window-start-patch.yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: resume-job
-spec:
-  suspend: false
-  schedule: "0 8 * * 1".  # Starts the maintenance window every Monday at 8:00am
+              command: ["/bin/sh", "-c"]
+              args:
+                - flux resume kustomization infra -n flux-system && flux resume kustomization apps -n flux-system;
+          restartPolicy: Never
 ```
 
 ```yaml
-#window-stop-patch.yaml
+# close-reconciliation-window-job.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: resume-job
+  name: close-reconciliation-window
+  namespace: jobs
 spec:
-  suspend: false
-  schedule: "0 8 * * 1".  # Stops the maintenance window every Monday at 8:30am
+  schedule: "* * * * *"
+  suspend: true
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: <service-account-name>
+          containers:
+            - name: hello
+              image: ghcr.io/fluxcd/flux-cli:v0.36.0
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - flux suspend kustomization infra -n flux-system && flux suspend kustomization apps -n flux-system;
+          restartPolicy: Never
 ```
 
-This would solve the definition of maintenance windows for our use case and enable us to use ConfigService and not another external system to manage the definition of these maintenance windows.
+> **Note**: To use th template replace the `spec.schedule` with a cron string and set `spec.suspends` to `false`.
 
-Additionally, by suspending the kustomization resource (hence stopping the synchronization of the GitOps repo to the cluster by flux) we can still push any planned changes to the GitOps repository's main branch. This means the user would be able to know, what the desired state is for the configuration types after the window has passed and can take that into account when changing the configurations. The explicit separation of configuration types will also handle potential overwrites of live changes by maintenance window changes.
+The services account needs following rights:
 
-As illustrated on two types of windows, this solution can be extended to accommodate more window types. However, this will increase the number of kustomization resources.
+```yaml
+- apiGroups: ["kustomize.toolkit.fluxcd.io"]
+  resources: ["kustomizations"]
+  verbs: ["list", "patch", "watch", "update", "get"]
+```
 
-## Proposal
+### Use GitOps to manage the reconciliation window resources
 
-**Option 2**, because:
+By placing the definition of the `CronJob` within the GitOps repository itself, it becomes part of the regular infrastructure. Similar to how one would customize infrastructure components for different clusters, `Cronjobs`'s schedule can be customized using the patching feature of `kustomize`.
+For this, a `patch.yaml` which contains cron string needs to be added on the cluster level, as well as a reference to the patch in the `kustomization.yaml`.
 
-- The maintenance of the key components is handled by third parties (eg. K8s, Flux, Kustomize).
+Eg. The window opens up every 10 minutes for 5 minutes.
+
+```yaml
+# open-reconciliation-window-patch.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: open-reconciliation-window
+  namespace: jobs
+spec:
+  schedule: "0,10,20,30,40,50 * * * *"
+
+# close-reconciliation-window-patch.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: close-reconciliation-window
+  namespace: jobs
+spec:
+  schedule: "5,15,25,35,45,55 * * * *"
+  suspend: false
+```
+
+```yaml
+# kustomization.yaml
+resources:
+  - ./../../../../infra/reconciliation-window
+
+patchesStrategicMerge:
+  - ./open-reconciliation-window-patch.yaml
+  - ./close-reconciliation-window-patch.yaml
+```
+
+the full solution can be found in this sample repository: [ Sample 1 - GitOps repository that enables reconciliation windows](https://github.com/MahrRah/flux-reconciliation-windows-sample/tree/main/Sample1)
+
+### Real-time and Maintenance window changes
+
+This solution can be taken even one step further.
+In scenarios when multiple configuration types are required, the GitOps repository has to be refactored.
+A consequence of using the Flux suspension feature to manage the reconciliation windows is, that the granularity of control ends at what resources get managed by one `kustomization`.
+So as a result, in a case where a cluster needs real-time changes, as well as changes that get applied during a reconciliation window, the resources now need to be managed by two `kustomization` resources.
+
+There are multiple ways how this can be achieved. One of them is to split each application into two sub-version, to separate the resources which can be changed in real-time vs during a maintenance window.
+A sample repo for this can be found here: [Sample 2 -  GitOps repository to support both real-time and reconciliation window changes](https://github.com/MahrRah/flux-reconciliation-windows-sample/tree/main/Sample2)
+
+Advantages of this approach:
+
+- All open-source or K8s and Flux native components
+- Managed the same way every other application is managed on the cluster
 - Simple to use, as the used technologies are well documented.
-- Solution can be generalized and customized to match the individual needs of more than one window.
-- Solution can be used in parallel with approvers to also enable scheduling of fine grain changes.
+- With some adjustments to the GitOps repo it can handle different configuration types eg. real-time and maintenance windows
 
-## Consequences
+Consequences
 
-- Option 2 does not enable fine-grain configuration scheduling without a large overhead. However, the existing approver process in ConfigService can be used to handle the configuration scheduling.
-- Config Service needs to be only adjusted deploy new live version.
-
----
-
-<br>
-
-## Appendix - Mitigating the risk of inconsistent configuration states or conflicts between live & scheduled changes
-
-Considerations:
-
-Given that not all changes are applied to the cluster at the same time, the solution needs to make sure no inconsistent configuration state can be reached.
-Eg:
-
-- Overwriting of live configuration by outdated maintenance window changes
-- Incompatible configurations which are defined in the live vs maintenance window
-- Targeting the same configuration in the live and maintenance windows and causing a "merge conflict"
+- Does not enable fine-grain configuration scheduling without a large overhead. The granularity of control stops at what resources are all managed by one kustomization.
+  Config Service and the config service API needs to be adjusted to handle these new resources and folder structures in the GitOps repository.

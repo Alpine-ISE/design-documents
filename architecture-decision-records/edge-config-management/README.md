@@ -42,7 +42,7 @@ Observability, audit and recovery:
 
 9. [How to know whether changes made at the GitOps repo level have been successfully deployed to the server](NotificationProvider.md).
 
-10. Options for realtime observability of the cluster workloads.
+10. [Options for realtime observability of the cluster workloads](ClusterObservability.md)
 
 11. [Rolling back to prior cluster and configuration states](Rollback.md).
 

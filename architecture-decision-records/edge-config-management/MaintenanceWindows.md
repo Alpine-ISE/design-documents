@@ -18,8 +18,9 @@ flux suspend kustomization <name>  # halts reconciliation of changes
 flux resume kustomization <name>   # resumes reconciliation of changes
 ```
 
-Combining this with the scheduling ability of K8s `CronJobs`, flux `kustomization` resource can be managed so suspend reconciliation at the end of a reconciliation window and start applying changes again at the beginning of the newt time window.
-For this, we need an opening `CronJob` and a `CronJob`, as well as a service account, which allows the Jobs to manipulate resources on the cluster.
+Combining this with the scheduling ability of K8s `CronJobs`, flux `kustomization` resource can be managed by suspending reconciliations at the end of a reconciliation window and start applying changes again at the beginning of the new time window.
+For this, we need an opening `CronJob` and a closing `CronJob`, as well as a service account, which allows the jobs to manipulate resources on the cluster.
+See below a template of such jobs:
 
 ```yaml
 # open-reconciliation-window-job.yaml
@@ -73,7 +74,7 @@ spec:
 
 > **Note**: To use th template replace the `spec.schedule` with a cron string and set `spec.suspends` to `false`.
 
-The services account needs following rights:
+The services account needs the following rights:
 
 ```yaml
 - apiGroups: ["kustomize.toolkit.fluxcd.io"]
@@ -119,15 +120,14 @@ patchesStrategicMerge:
   - ./close-reconciliation-window-patch.yaml
 ```
 
-the full solution can be found in this sample repository: [ Sample 1 - GitOps repository that enables reconciliation windows](https://github.com/MahrRah/flux-reconciliation-windows-sample/tree/main/Sample1)
+The full solution can be found in this sample repository: [ Sample 1 - GitOps repository that enables reconciliation windows](https://github.com/MahrRah/flux-reconciliation-windows-sample/tree/main/Sample1)
 
 ### Real-time and Maintenance window changes
 
-This solution can be taken even one step further.
-In scenarios when multiple configuration types are required, the GitOps repository has to be refactored.
+This solution can be taken even one step further for scenarios where multiple configuration types are required. 
 A consequence of using the Flux suspension feature to manage the reconciliation windows is, that the granularity of control ends at what resources get managed by one `kustomization`.
 So as a result, in a case where a cluster needs real-time changes, as well as changes that get applied during a reconciliation window, the resources now need to be managed by two `kustomization` resources.
-
+Hence refactoring the GitOps repository in such that each resource is either managed by one or the other `kustomization` resources, in adition to the above approach for one of the `kustomization` resources would enable having different configuration types.
 There are multiple ways how this can be achieved. One of them is to split each application into two sub-version, to separate the resources which can be changed in real-time vs during a maintenance window.
 A sample repo for this can be found here: [Sample 2 -  GitOps repository to support both real-time and reconciliation window changes](https://github.com/MahrRah/flux-reconciliation-windows-sample/tree/main/Sample2)
 
@@ -138,7 +138,7 @@ Advantages of this approach:
 - Simple to use, as the used technologies are well documented.
 - With some adjustments to the GitOps repo it can handle different configuration types eg. real-time and maintenance windows
 
-Consequences
+Consequences:
 
 - Does not enable fine-grain configuration scheduling without a large overhead. The granularity of control stops at what resources are all managed by one kustomization.
   Config Service and the config service API needs to be adjusted to handle these new resources and folder structures in the GitOps repository.

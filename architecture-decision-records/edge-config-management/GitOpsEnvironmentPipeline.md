@@ -1,4 +1,4 @@
-# GitOps Repositories and Environments
+# Promoting changes to Environments using GitOps Repositories
 
 ## Problem
 How do we want to promote changes in our GitOps repository from dev to quality to prod to ensure code cannot skip one of the gates?

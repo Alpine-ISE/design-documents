@@ -1,11 +1,13 @@
 # Secret Management with GitOps
 
-GitOps primarily have git repositories in the center considered a source of truth for managing both infrastructure and application. This Infrastructure and application will require secured access to other resources of the system through secrets. Committing clear text secrets into git repositories is unacceptable even if the repositories are private to your team and organization. Teams need a secure way to handle secrets when using GitOps.
+GitOps primarily have git repositories in the center considered a source of truth for managing both infrastructure and application. This Infrastructure and application will require secured access to other resources of the system through secrets. Committing clear text secrets into git repositories is unacceptable even if the repositories are private to your team and organization. This is unacceptable for a multitude of reasons, but an example can be because secrets are then stored in clear-text on every developers computer and if a developers computer is compromised, so are all the secrets. Teams need a secure way to handle secrets when using GitOps.
 
 There are many ways to manage secrets with GitOps and at high level can be categorized into:
 
-1. Encrypted Secrets in Git Repositories
+1. Encrypted secrets in git repositories
 1. Reference to secrets stored in the external key vault
+
+> **TLDR**: Referencing secrets in an external key vault is the recommended approach, because of, but not limited to, storing encrypted secrets in repo can result in secrets being exposed if the private key is leaked, easier to orchestrate secret rotation and scalable to with multiple clusters.
 
 ## 1. Encrypted Secrets in Git Repositories
 
@@ -13,6 +15,7 @@ In this approach, secrets are manually encrypted by developers using a public ke
 
 - Secret changes are managed by making changes within the GitOps repository which provides great traceability of the changes made
 - All secrets can be rotated by making changes in GitOps, without accessing the cluster
+- Secrets are stored encrypted in the gitops repository, if the private encryption key is leaked, all secrets can be decrypted
 
 ### [Bitnami Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets)
 
@@ -21,11 +24,10 @@ Sealed secrets use asymmetric encryption to encrypt secrets. Kubernetes controll
 - [Support automatic key rotation](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal) for the private key and can be used to enforce re-encryption of secrets
   - Due to [automatic renewal of the sealing key](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal), the key needs to be prefetched from the cluster or cluster set up to store the sealing key on renewal in a secondary location
 - Multi-tenancy support at the namespace level can be enforced by the controller
-- When sealing secrets developers needs a connection to the cluster control plane to fetch the public key or the public key has to be explicitly shared with the developer
+- When sealing secrets developers need a connection to the cluster control plane to fetch the public key or the public key has to be explicitly shared with the developer
 - Potential risk of secret checked into a git repo
 - If the private key in the cluster is lost for some reason all secrets need to be re-encrypted followed by a new key-pair generation
-- Does not scale with Multi-cluster here every cluster will require a controller having its own key pair
-- Secrets are stored encrypted in the gitops repository, if the private encryption key is leaked, all secrets can be decrypted
+- Does not scale with multi-cluster here every cluster will require a controller having its own key pair
 
 ### [Mozilla SOPS](https://github.com/mozilla/sops)
 

@@ -11,7 +11,7 @@ How do we want to represent the different state of each environment and promote 
   - The GitOps repository contains 3 base folders:
     - `apps`: Contains the base setup of each application. Each application can contain one or more deployments, services, configMaps etc.  Only Developers/Ops will update content within this folder.
     - `infra`: Contains the base setup of the infrastructure the applications need to run on the cluster eg. MQTT Broker.  Again, only Developers/Ops will update this.
-    - `clusters`: Contains a directory for each cluster which is connected to this GitOps repository.  Initial folders must be created by the Ops team as a new cluster is onboarded (i.e. when a new Edge device is provisioned).  However, modification of the cluster's configuration will be done by end users via the ConfigService API.
+    - `clusters`: Contains a directory for each cluster which is connected to this GitOps repository.  Initial folders must be created by the Ops team as a new cluster is onboarded (i.e. when a new Edge device is provisioned).
   - Therefore, changes from `/apps` and `/infra` should be promoted from Dev to Qual to Production, whereas changes in `/clusters` should not be promoted as they are environment dependent.
     - [ ] We want to ensure that `/apps` and `/infra` should always be promoted as a bundle including all changes. To stage changes we could use feature branches and PRs.
     - [ ] We want to be able to promote selected apps or infra projects individual, this would mean that we want to be able to promote selected sub folders from `/apps` and `/infra` to allow small and flexible updates.

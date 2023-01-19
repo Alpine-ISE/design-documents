@@ -2,32 +2,32 @@
 
 ## Problem
 
-Kubernetes clusters run multiple workloads and host by design distributed systems. Hence, having a good observability suite for these cluster is of essence, especially when it comes to diagnostics and troubleshooting.
+Kubernetes clusters run multiple workloads and host by design distributed systems. Hence, having a good observability suite for these clusters is of the essence, especially when it comes to diagnostics and troubleshooting.
 
-What we understand under observability of a Kubernetes cluster can be split into two main parts:
+What we understand under the observability of a Kubernetes cluster can be split into two main parts:
 
 Infrastructure observability:
 
 - Cluster-level resource metrics,
-- Operational status of system services (e.g., ??(how would you refer to this?_kube-system_).
+- Operational status of kube-system
 
 Workload observability
 
 - Application health and readiness
 - Application telemetry data (e.g. Metrics, Traces, Logs)
 
-There are multiple ways to extract the needed information from a cluster and get a overview on the clusters health from the outside.
-This article aims to show case some of these options and include their up and down sides. 
+There are multiple ways to extract the needed information from a cluster and get an overview of the cluster's health from the outside.
+This article aims to showcase some of these options and include their up and downsides. 
 
-- Collector based approaches
+- Collector-based approaches
   - Azure Container Insights
   - Opentelemetry
-- Individual instrumentation based approaches
+- Individual instrumentation-based approaches
   - SDK instrumentation
 
 ## Solutions
 
-### Collector based approaches
+### Collector-based approaches
 
 #### Azure Monitor Container Insights for Azure Arc-enabled K8S clusters.
 
@@ -41,7 +41,7 @@ Advantages of Azure Monitor Container Insights.
 - Supports cluster metrics and container logs out of the box with Azure Arc integration.
 - Leverages Azure Monitor Container dashboards that allow monitoring at scale (Cluster Insights, Fleet Overview)
 - Deployment and management via Azure (REST API, ARM/Bicep, Azure Portal)
-- Supports temporary disconnects (tested for 5mins and 2hours)
+- Supports temporary disconnects
 
 Disadvantages:
 
@@ -51,7 +51,7 @@ Disadvantages:
 
 #### OpenTelemetry Collector
 
-[OpenTelemetry](https://opentelemetry.io/) provides an SDK to expose telemetry using the OpenTelemetry Protocol (OPLT) to external systems one of such is the [OpenTelemetry collector](https://opentelemetry.io/docs/collector/).
+[OpenTelemetry](https://opentelemetry.io/) provides an SDK to expose telemetry using the OpenTelemetry Protocol (OPLT) to external systems, one of such is the [OpenTelemetry collector](https://opentelemetry.io/docs/collector/).
 The OpenTelemetry collectors can be used to create pipelines to receive, process, and export telemetry data of the of types: Metrics, Logs, and Traces.
 It currently supports a list of receiver types (see [core](https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver) and [extended](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver) ), as well as exporters (see [core](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter) and [extended](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter))
 
@@ -69,12 +69,12 @@ Disadvantages:
 - No metrics export support for Azure at the moment
 - No buffering to cloud support at the moment.
 
-#### Comparison Collector bases approaches
+#### Comparison of the collector bases approaches
 
 |                                                                  | Container Insights for Azure Arc-enabled cluster                                                                    | OpenTelemetryCollector                                                                                                                                                     |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Infrastructure metrics Resources : CPU / RAM**                 | <font color="green">**Yes**</font> – out the box for the cluster (not for the VM)                                   | <font color="green">**Yes**</font>- Has a K8s operator since Oct 2022 see docs [OpenTelemetry Operator for Kubernetes](https://opentelemetry.io/docs/k8s-operator/)</font> |
-| **Application metrics** "e.g.Requests/sec, workload health"      | <font color="green">**Yes**</font> - application needs to exposePrometheus endpoint (Prometheus /OpenTelemetry SDK) | <font color="green">**Yes**</font> - application needs to expose Prometheus endpoint (Prometheus /OpenTelemetry SDK)                                                       |
+| **Infrastructure metrics Resources: CPU / RAM**                 | <font color="green">**Yes**</font> – out the box for the cluster (not for the VM)                                   | <font color="green">**Yes**</font>- Has a K8s operator since Oct 2022 see docs [OpenTelemetry Operator for Kubernetes](https://opentelemetry.io/docs/k8s-operator/)</font> |
+| **Application metrics** "e.g.Requests/sec, workload health"      | <font color="green">**Yes**</font> - application needs to expose Prometheus endpoint (Prometheus /OpenTelemetry SDK) | <font color="green">**Yes**</font> - application needs to expose Prometheus endpoint (Prometheus /OpenTelemetry SDK)                                                       |
 | **Send logs to the cloud**                                       | <font color="green">**Yes**</font> – uses Log Analytics agent for Linux (to be deprecated in 2024).                 | <font color="green">**Yes**</font>                                                                                                                                         |
 | **Distributed tracing** "Performance: latency, etc."             | Needs to instrument with App-Insights SDK (or OpenTelemetry SDK)                                                    | Need to instrument with OpenTelemetry SDK _OpenTelemetry SDK suports autoinstrumentation for : C#, Java, Python, PHP and Ruby_                                             |
 | **Supported datastores**                                         | Log Analytics Workspace (cloud)                                                                                     | <font color="green">**Multiple options**</font>                                                                                                                            |
@@ -86,9 +86,9 @@ Disadvantages:
 | **Effort**                                                       | <font color="green">**Low**</font>                                                                                  | <font color="red">**High**</font>                                                                                                                                          |
 | **Maturity / Risk**                                              | <font color="green">**Mature**</font>                                                                               | Still early                                                                                                                                                                |
 
-## Individual instrumentation based approaches
+## Individual instrumentation-based approaches
 
-Using SDKs directly to instrument the application can be usefull in some cases when the agents have short commings. However, given some of the disadvantages, this option is not often a suitanble choice.
+Using SDKs directly to instrument the application can be useful in some cases when the agents have short comings. However, given some of the disadvantages, this option is not often a suitable choice.
 
 List of SDKs:
 
@@ -98,7 +98,7 @@ List of SDKs:
 Advantage:
 
 - Comes often with auto instrumentation for popular languages
-- Often supports all telemetry datas (Logs, Metrics, Traces)
+- Often supports all telemetry data (Logs, Metrics, Traces)
 
 Disadvantages:
 

@@ -7,11 +7,13 @@ There are many ways to manage secrets with GitOps and at high level can be categ
 1. Encrypted secrets in git repositories
 1. Reference to secrets stored in the external key vault
 
-> **TLDR**: Referencing secrets in an external key vault is the recommended approach, because of, but not limited to, storing encrypted secrets in repo can result in secrets being exposed if the private key is leaked, easier to orchestrate secret rotation and scalable to with multiple clusters.
+> **TLDR**: Referencing secrets in an external key vault is the recommended approach, because of, but not limited to, storing encrypted secrets in repo can result in secrets being exposed if the private key is leaked, easier to orchestrate secret rotation and not as scalable to with multiple clusters or teams.
 
 ## 1. Encrypted Secrets in Git Repositories
 
 In this approach, secrets are manually encrypted by developers using a public key and the custom Kubernetes controller running in the target cluster can only decrypt the key. Some popular tools for his approach are [Bitnami Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets), [Mozilla SOPS](https://github.com/mozilla/sops)
+
+All the secret encryption tools share the following:
 
 - Secret changes are managed by making changes within the GitOps repository which provides great traceability of the changes made
 - All secrets can be rotated by making changes in GitOps, without accessing the cluster
@@ -19,33 +21,32 @@ In this approach, secrets are manually encrypted by developers using a public ke
 
 ### [Bitnami Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets)
 
-Sealed secrets use asymmetric encryption to encrypt secrets. Kubernetes controller generates key pair(private-public) and stores the private key in etcd as Kubernetes secret. Developers use [Kubeseal CLI](https://github.com/bitnami-labs/sealed-secrets#public-key--certificate) to seal secrets before committing to the git repo.
+Sealed Secrets use asymmetric encryption to encrypt secrets. A Kubernetes controller generates a key-pair (private-public) and stores the private key in the cluster's `etcd` database as a Kubernetes secret. Developers use [Kubeseal CLI](https://github.com/bitnami-labs/sealed-secrets#public-key--certificate) to seal secrets before committing to the git repo.
+
+Some of the key points of using Sealed Secrets are:
 
 - [Support automatic key rotation](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal) for the private key and can be used to enforce re-encryption of secrets
   - Due to [automatic renewal of the sealing key](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal), the key needs to be prefetched from the cluster or cluster set up to store the sealing key on renewal in a secondary location
 - Multi-tenancy support at the namespace level can be enforced by the controller
 - When sealing secrets developers need a connection to the cluster control plane to fetch the public key or the public key has to be explicitly shared with the developer
-- Potential risk of secret checked into a git repo
 - If the private key in the cluster is lost for some reason all secrets need to be re-encrypted followed by a new key-pair generation
-- Does not scale with multi-cluster here every cluster will require a controller having its own key pair
+- Does not scale with multi-cluster, because every cluster will require a controller having its own key pair
 
 ### [Mozilla SOPS](https://github.com/mozilla/sops)
 
-SOPS: Secrets OPerationS is an encryption tool that supports YAML, JSON, ENV, INI, and BINARY formats and encrypts with AWS KMS, GCP KMS, Azure Key Vault, age, and PGP and is not just limited to Kubernetes. It supports integration with some common key management systems including Azure Key Vault. Where the key management system is used to store the encryption key for encrypting secrets and not the actual secrets.
+SOPS: Secrets OPerationS is an encryption tool that supports YAML, JSON, ENV, INI, and BINARY formats and encrypts with AWS KMS, GCP KMS, Azure Key Vault, age, and PGP and is not just limited to Kubernetes. It supports integration with some common key management systems including Azure Key Vault, where the key management system is used to store the encryption key for encrypting secrets and not the actual secrets.
 
-- [Flux](https://toolkit.fluxcd.io/guides/mozilla-sops/#azure) has better support for SOPS with cluster-side decryption.
-- An added layer of security as the private key used for decryption is protected in an external key vault.
-- Needs plugin to work with Helm([Helm Secrets](https://github.com/jkroepke/helm-secrets)) and Kustomization ([KSOPS](https://github.com/viaduct-ai/kustomize-sops))([kustomize-sopssecretgenerator](https://github.com/goabout/kustomize-sopssecretgenerator))
+Some of the key points of using SOPS are:
+
+- [Flux](https://toolkit.fluxcd.io/guides/mozilla-sops/#azure) has better support for SOPS with cluster-side decryption
+- Provides an added layer of security as the private key used for decryption is protected in an external key vault
+- Needs plugin to work with Helm ([Helm Secrets](https://github.com/jkroepke/helm-secrets)) and Kustomization ([KSOPS](https://github.com/viaduct-ai/kustomize-sops))([kustomize-sopssecretgenerator](https://github.com/goabout/kustomize-sopssecretgenerator))
 - Does not scale with larger teams as each developer has to encrypt the secrets
-- The public key is sufficient for creating brand new files. The secret key is required for decrypting and editing existing files because SOPS computes a MAC on all values.  When using the public key solely to add or remove a field, the whole file should be deleted and recreated.
+- The public key is sufficient for creating brand new files. The secret key is required for decrypting and editing existing files because SOPS computes a MAC on all values.  When using the public key solely to add or remove a field, the whole file should be deleted and recreated
 
 ## 2. Reference to secrets stored in an external key vault (recommended)
 
 This approach relies on a key management system like [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview) to hold the secrets and the git manifest in the repositories has reference to the key vault secrets. Developers do not perform any cryptographic operations with files in repositories. Kubernetes operators running in the target cluster are responsible for pulling the secrets from the key vault and making them available either as Kubernetes secrets or secrets volume mounted to the pod.
-
-For secret rotation ideas, see [Secrets Rotation on Environment Variables and Mounted Secrets](#secrets-rotation-on-environment-variables-and-mounted-secrets)
-
-For how to authenticate private container registries with a Service principal see: [Authenticated Private Container Registry](#authenticated-private-container-registry)
 
 All the below options provide the following:
 
@@ -55,7 +56,11 @@ All the below options provide the following:
 - Supports Linux and Windows containers
 - Provides enterprise-grade external secret management
 - Easily scalable with multi-cluster and larger teams
-- Both solutions support either Service Principal or Managed Identity for [authentication with the Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/authentication).
+- Both solutions support either Azure Active Directory (Azure AD) [service principal](https://learn.microsoft.com/en-us/azure/active-directory/develop/app-objects-and-service-principals) or [managed identity](https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview) for [authentication with the Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/authentication).
+
+For secret rotation ideas, see [Secrets Rotation on Environment Variables and Mounted Secrets](#secrets-rotation-on-environment-variables-and-mounted-secrets)
+
+For how to authenticate private container registries with a service principal see: [Authenticated Private Container Registry](#authenticated-private-container-registry)
 
 ### [Azure Key Vault Provider for Secrets Store CSI Driver](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
 

@@ -6,8 +6,7 @@ We operate multiple K8s clusters on the edge that require communication with clo
 
 In this document, we shall consider some of the options available, their strengths & weaknesses, and our recommendation.
 
-
-## Decision drivers:
+## Decision drivers
 
 - **Ease of use**: How easy is it to add and use a new secret?
 - **Secret rotation**: Can secret rotation be done, if yes is it difficult?
@@ -16,7 +15,7 @@ In this document, we shall consider some of the options available, their strengt
 - **Offline capabilities**: Can pods be started or restarted while the cluster is offline?
 - **Software popularity and support**: Is the approach recommended by a company and how popular is the product with the OSS community?
 
-## Options considered:
+## Options considered
 
 ### 1. [Secrets Store CSI Driver with an Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
 
@@ -39,7 +38,7 @@ Azure Key Vault Provider for [Secrets Store CSI Driver](https://github.com/kuber
 - The [Kubernetes Secret containing the Service Principal credentials](https://azure.github.io/secrets-store-csi-driver-provider-azure/docs/configurations/identity-access-modes/service-principal-mode/) need to be created in the same namespace as the application pod. If pods in multiple namespaces need to use the same SP to access Key Vault, this Kubernetes Secret needs to be created in each namespace.
 - The GitOps repo must contain the name of the key vault within the SecretProviderClass
 - Must mount secrets as volumes to allow sync into Kubernetes Secrets
-- Missing Offline scenario support: When the edge is offline the SSCSID fails to fetch the secret and thus mounting the volume fails, making scaling and restarting pods not possible while being offline (see [PG proposal here](https://docs.google.com/document/d/1qAm_D3UflpmSn7J8QV1gxvbmv5RDX6hw8v2mvYfKBfc/edit#)). **TODO - confirm with PG what's the fix.**
+- [Missing disconnected scenario support](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/446): When the node is offline the SSCSID fails to fetch the secret and thus mounting the volume fails, making scaling and restarting pods not possible while being offline
 - Uses more resources (4 pods; CSI Storage driver and provider) and is a daemonset - not test on RPS / resource usage.
 
 ### 2. [External Secrets Operator with Azure Key Vault](https://external-secrets.io/)
@@ -48,7 +47,8 @@ The External Secrets Operator (ESO) is an open-sourced Kubernetes operator that 
 
 ![image.png](images/SecretsManagement/image-610ac7b4-4099-48ee-9877-8a5827ba1787.png)
 ![image.png](images/SecretsManagement/image-a1107c4f-c7a5-436b-a57b-47b00f05dfbf.png)
-**Advantanges**
+
+**Advantanges:**
 
 - Supports sync with Kubernetes Secrets.
 - Supports auto rotation of secrets with customizable sync intervals per secret.
@@ -62,11 +62,11 @@ The External Secrets Operator (ESO) is an open-sourced Kubernetes operator that 
 - Slightly more popular OSS repository with 1.5k stars vs ~850 + ~350 stars (AKVP)
 - Offline scenario support: As ESO is using native K8s secrets the cluster can be offline, and it does not have any implications towards restarting and scaling pods while being offline.
 
-**Disadvantages**
-- ESO requires a Service Principal or Self-managed Workload Identity (see Appendix [Workload Identity](#Azure-AD-Workload-Identity))
+**Disadvantages:**
+
+- ESO requires a Service Principal or Self-managed Workload Identity (see Appendix [Workload Identity](#azure-ad-workload-identity))
   > For potential solutions for how to create the SP see [the appendix](#potential-solutions-for-how-to-create-the-sp-needed-for-the-eso/akvp).
 - The GitOps repo must contain the name of the keyvault within the SecretStore / ClusterSecretStore
-
 
 ### 3. [Sealed Secrets with Flux](https://fluxcd.io/docs/guides/sealed-secrets/)
 
@@ -74,16 +74,18 @@ In order to store secrets safely in a public or private Git repository, you can 
 
 ![image.png](images/SecretsManagement/image-1ea83419-a023-4dac-a6c7-c6a94fd48e02.png)
 ![image.png](images/SecretsManagement/image-97c0eef4-c5b9-4a3a-a0f1-2a96b0fe38d3.png)
+
 **Advantages:**
+
 - Secret changes are managed by making changes within the GitOps repository which provides great traceability of the changes made
 - All secrets can be rotated by making changes in GitOps, without accessing the cluster
 - [Sealing key is renewed automatically](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal) every 30 days
 
 **Disadvantages:**
+
 - To encrypt secrets you must retrieve the public key of the `sealed-secrets controller` deployed onto the cluster
 - Secrets are stored encrypted in the gitops repository, if the private encryption key is leaked, all secrets can be decrypted
 - Due to [automatic renewal of the sealing key](https://github.com/bitnami-labs/sealed-secrets#sealing-key-renewal), the key needs to be prefetched from the cluster or cluster set up to store the sealing key on renewal in a secondary location
-
 
 ### 4. [Hashicorp Vault](https://www.vaultproject.io/docs/platform/k8s)
 
@@ -99,41 +101,41 @@ Vault can be deployed into Kubernetes using the official HashiCorp Vault Helm ch
 
 ## Decision
 
-[What decision was taken?]: #
 
 We propose to use the **_External Secret Operator (ESO)_** as it:
+
 - fulfils all major requirements,
 - is well supported by the Opensource community,
 - supports (temporary) offline scenarios as it syncs into K8s secrets,
 - allows easy management of K8s secrets with secret rotation.
 
 In addition we also recommend:
+
 - Creating the Azure Key Vault SP secret on the cluster with Cluster Connect
 - Using the `ImagePullSecrets` functionality and define this as a default on a `ServiceAccountLevel`. We can still use the mirror-functionality of k3s in the `registry.yaml` **TODO: Look into using kustomize to template the ACR url**
-  > See [Secret Rotation for Authenticated Private Container Registry](#Secret-Rotation-for-Authenticated-Private-Container-Registry) for consequences of using option 2
+  > See [Secret Rotation for Authenticated Private Container Registry](#secret-rotation-for-authenticated-private-container-registry) for consequences of using option 2
 - Mounting secrets as environment variables and using [Reloader](https://github.com/stakater/Reloader) to restart the applications (unless not restarting applications is a requirement)
 
 A switching to CSI Driver (if required) seems feasible. For example, if based on additional requirements, we switch offline support to sealed secrets.
 
 ## Consequences
 
-[What are the consequences of this decision?]: #
-
 - Secrets are managed in central location (Azure)
 - Secrets can be rotated via Keyvault and synced into the secrets (environment or volume)
-  > Important: see important implications in [Appendix - Secrets Rotation on Environment Variables and Mounted Secrets](#Secrets-Rotation-on-Environment-Variables-and-Mounted-Secrets)
+  > Important: see important implications in [Appendix - Secrets Rotation on Environment Variables and Mounted Secrets](#secrets-rotation-on-environment-variables-and-mounted-secrets)
 - We need to create one secret on the cluster for ESO to authenticate with Azure
 - We need to decide how to authenticate the ACR (private container registry) regarding secret rotation.
 - With using Cluster Connect for creating of the SP there needs to be additional steps to ensure traceability of changing/creating the secret on the cluster
 - We need to account for rate limits of the KV [docs](https://docs.microsoft.com/en-us/azure/key-vault/general/service-limits) and choose appropriate sync intervals.
 
- ## Appendix
+## Appendix
 
 ### Secrets Rotation on Environment Variables and Mounted Secrets
 
 1. Mapping Secrets via secretKeyRef with environment variables.
 
    If we map a K8s native secret via a `secretKeyRef` into an environment variable and we rotate keys the environment variable is not updated even though the K8s native secret has been updated. We need to restart the Pod so changes get populated. [Reloader](https://github.com/stakater/Reloader) solves this issue with a K8S controller.
+
    ```yaml
    ...
         env:
@@ -184,19 +186,15 @@ A switching to CSI Driver (if required) seems feasible. For example, if based on
    ...
    ```
 
-### Product Group Links provided for AKVP with SSCSID
-
-1. Differences between ESO / SSCSID ([GitHub Issue](https://github.com/external-secrets/external-secrets/issues/478))
-2. Secrets Management on K8S talk [here](https://www.youtube.com/watch?v=EW25WpErCmA) (Native Secrets, Vault.io, and ESO vs. SSCSID)
-
 ### Secret Rotation for Authenticated Private Container Registry
 
 We need to decide how we authenticate the private container registries (e.g., ACR).
 With k3s we have two options:
-1.  Use `/etc/rancher/k3s/registries.yaml` to cluster-wide authenticate the CR. We have the following disadvantages:
+
+1. Use `/etc/rancher/k3s/registries.yaml` to cluster-wide authenticate the CR. We have the following disadvantages:
     - You need to have access to the machine locally or with SSH (cluster connect is not good enough) to modify the `/etc/rancher/k3s/registries.yaml`.
-    -  In order for the registry changes in `/etc/rancher/k3s/registries.yaml` to take effect, you need to restart K3s on each node
-2.  Use a `dockerconfigjson` Kubernetes Secret on Pod-Level with `ImagePullSecret` (This can be also defined on [namespace-level](https://kubernetes.io/docs/concepts/containers/images/#referring-to-an-imagepullsecrets-on-a-pod)). We have the following disadvantages:
+    - In order for the registry changes in `/etc/rancher/k3s/registries.yaml` to take effect, you need to restart K3s on each node
+2. Use a `dockerconfigjson` Kubernetes Secret on Pod-Level with `ImagePullSecret` (This can be also defined on [namespace-level](https://kubernetes.io/docs/concepts/containers/images/#referring-to-an-imagepullsecrets-on-a-pod)). We have the following disadvantages:
     - Need to specify the ImagePullSecret for each pod that uses a private CR. We can still use the mirror feature of `/etc/rancher/k3s/registries.yaml` or explicitly name the CR.
 
 ### Potential solutions for how to create the SP needed for the ESO/AKVP
@@ -205,12 +203,14 @@ With k3s we have two options:
    Using [Cluster Connect](https://docs.microsoft.com/en-us/azure/azure-arc/kubernetes/cluster-connect?tabs=azure-cli) to connect to the cluster and create the SP secret within the cluster
 
   **Advantages:**
-    - Cluster connect is also useful as an alternative to manage the cluster without SSH (only cluster, not the device)
+
+  - Cluster connect is also useful as an alternative to manage the cluster without SSH (only cluster, not the device)
 
   **Disadvantages:**
-    - Lack of traceability without additional steps, such as only running this from a pipeline
-- Using Sealed Secrets to create the secrets within the GitOps repo
-  > See advantages and disadvantages of Sealed Secrets above
+
+  - Lack of traceability without additional steps, such as only running this from a pipeline
+  - Using Sealed Secrets to create the secrets within the GitOps repo
+      > See advantages and disadvantages of Sealed Secrets above
 
 ### Azure AD Workload Identity
 
@@ -219,4 +219,3 @@ With k3s we have two options:
 **Disadvantages:**
 
 - Would require us to set up our own OIDC url and manage and rotate the secret: [Self-Managed Clusters - Azure AD Workload Identity](https://azure.github.io/azure-workload-identity/docs/installation/self-managed-clusters.html)
-

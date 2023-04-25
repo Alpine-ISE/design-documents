@@ -1,5 +1,7 @@
 # Managing secrets in Kubernetes clusters
 
+Author: Eliise Seling
+
 ## Context
 
 We operate multiple K8s clusters on the edge that require communication with cloud resources, such as an container registries or cloud storage. Secrets will therefore need to be created, managed & deployed to the clusters in order to access the cloud resources.

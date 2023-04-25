@@ -1,5 +1,7 @@
 # Health checks
 
+Author: Eliise Seling
+
 ## Problem
 
 When deploying a new version of an application to a K3s cluster, we'd like to know if the application started successfully and is healthy. We can achieve this by configuring [Kubernetes probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/).

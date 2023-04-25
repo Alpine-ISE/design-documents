@@ -1,6 +1,8 @@
 
 # Configure image registry
 
+Author: Eliise Seling
+
 ## Problem
 
 We want to be able pull images from environment specific image repositories.

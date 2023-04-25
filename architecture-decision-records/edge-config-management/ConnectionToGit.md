@@ -1,5 +1,7 @@
 # Connection to our Git Repo
 
+Author: Eliise Seling, Customer
+
 ## Problem
 We need a way to ensure that our Config Service and Flux on our Edge device have access to out git repository
 

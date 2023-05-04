@@ -26,7 +26,7 @@ Con:
 - PAT token can be used to impersonate said developer by other developers.
 
 ## Azure Service Account
-We register an Azure Service Account that is used to manage the access to the git repositories.
+We register an [Azure Active Directory User employed as Service Account](https://learn.microsoft.com/en-us/azure/active-directory/fundamentals/service-accounts-governing-azure) that is used to manage the access to the git repositories. Creation of PAT token or SSH keys is not supported by Service Principals or Managed Identities.
 
 Pro:
 - Dedicated DevOps User that can be managed by a set of developer to create or remove access to our git repos.
@@ -36,6 +36,7 @@ Pro:
 
 Con:
 - Needs additional time to request and setup the Service Account
+- Needs a Azure Devops license
 
 Do we want to use ssh keys or PAT Token?
 - With PAT tokens a specific scope on which the token is allowed to operate on can be specified, for example, a `read only` scope for repositories. `SSH` keys can't be configured in such a way.

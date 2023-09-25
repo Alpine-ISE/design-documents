@@ -7,13 +7,13 @@ The ADR's should include the problem, a short description of the analyzed or dis
 ## Table of contents
 
 ### Edge configuration management
-- [GitOps: Representation of Environments](./arc/GitOpsEnvironments.md)
-- [GitOps: Promotion of changes](./GitOpsEnvironmentPipeline.md)
-- [GitOps: Large configuration files](./LargeConfigurationFiles.md)
-- [GitOps: Health checks](./HealthChecks.md)
-- [K8s: Image registry configuration](./ConfigureImageRegistry.md)
-- [K8s: Creating Flux kustomizations](./CreatingFluxKustomizations.md)
-- [Git: How to connect to our GIT from edge/ConfigService](./ConnectionToGit.md)
-- [Maintenance windows: General implementation of maintenance windows](./MaintenanceWindows.md)
-- [Maintenance windows: Image for maintenance window job](./FluxImageForMaintenanceWindow.md)
-- [Rollback: how to roll back clusters to a known good state](./Rollback.md)
+- [GitOps: Representation of Environments](./architecture-decision-records/edge-config-management/GitOpsEnvironments.md)
+- [GitOps: Promotion of changes](./architecture-decision-records/edge-config-management/GitOpsEnvironmentPipeline.md)
+- [GitOps: Large configuration files](./architecture-decision-records/edge-config-management/LargeConfigurationFiles.md)
+- [GitOps: Health checks](./architecture-decision-records/edge-config-management/HealthChecks.md)
+- [K8s: Image registry configuration](./architecture-decision-records/edge-config-management/ConfigureImageRegistry.md)
+- [K8s: Creating Flux kustomizations](./architecture-decision-records/edge-config-management/CreatingFluxKustomizations.md)
+- [Git: How to connect to our GIT from edge/ConfigService](./architecture-decision-records/edge-config-management/ConnectionToGit.md)
+- [Maintenance windows: General implementation of maintenance windows](./architecture-decision-records/edge-config-management/MaintenanceWindows.md)
+- [Maintenance windows: Image for maintenance window job](./architecture-decision-records/edge-config-management/FluxImageForMaintenanceWindow.md)
+- [Rollback: how to roll back clusters to a known good state](./architecture-decision-records/edge-config-management/Rollback.md)

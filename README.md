@@ -11,6 +11,7 @@ The ADR's should include the problem, a short description of the analyzed or dis
 - [GitOps: Promotion of changes](./architecture-decision-records/edge-config-management/GitOpsEnvironmentPipeline.md)
 - [GitOps: Large configuration files](./architecture-decision-records/edge-config-management/LargeConfigurationFiles.md)
 - [GitOps: Health checks](./architecture-decision-records/edge-config-management/HealthChecks.md)
+- [K8s: Managing secrets in Kubernetes clusters](./architecture-decision-records/edge-config-management/SecretsManagement.md)
 - [K8s: Image registry configuration](./architecture-decision-records/edge-config-management/ConfigureImageRegistry.md)
 - [K8s: Creating Flux kustomizations](./architecture-decision-records/edge-config-management/CreatingFluxKustomizations.md)
 - [Git: How to connect to our GIT from edge/ConfigService](./architecture-decision-records/edge-config-management/ConnectionToGit.md)
